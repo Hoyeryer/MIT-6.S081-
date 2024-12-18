@@ -12,7 +12,7 @@ sys_exit(void)
   int n;
   argint(0, &n);
   exit(n);
-  return 0;  // not reached
+  return 0; // not reached
 }
 
 uint64
@@ -43,7 +43,7 @@ sys_sbrk(void)
 
   argint(0, &n);
   addr = myproc()->sz;
-  if(growproc(n) < 0)
+  if (growproc(n) < 0)
     return -1;
   return addr;
 }
@@ -55,18 +55,21 @@ sys_sleep(void)
   uint ticks0;
 
   argint(0, &n);
-  if(n < 0)
+  if (n < 0)
     n = 0;
   acquire(&tickslock);
   ticks0 = ticks;
-  while(ticks - ticks0 < n){
-    if(killed(myproc())){
+  while (ticks - ticks0 < n)
+  {
+    if (killed(myproc()))
+    {
       release(&tickslock);
       return -1;
     }
     sleep(&ticks, &tickslock);
   }
   release(&tickslock);
+  backtrace(); // Lab4-2
   return 0;
 }
 
@@ -90,4 +93,40 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+// lab4-3
+uint64 sys_sigreturn(void)
+{
+  struct proc *p = myproc();
+  if (p->trapframecopy != p->trapframe + 512)
+  {
+    return -1;
+  }
+  memmove(p->trapframe, p->trapframecopy, sizeof(struct trapframe));
+  p->passedticks = 0;
+  p->trapframecopy = 0;
+  return p->trapframe->a0; // 返回a0,避免被返回值覆盖
+}
+
+// lab4-3
+uint64 sys_sigalarm(void)
+{
+  int interval;
+  uint64 handler;
+  struct proc *p;
+  // 要求时间间隔非负
+  argint(0, &interval);
+  argaddr(1, &handler);
+  if (handler < 0 || interval < 0)
+  {
+    return -1;
+  }
+  // lab4-3
+  p = myproc();
+  p->interval = interval;
+  p->handler = handler;
+  p->passedticks = 0; // 重置过去时钟数
+
+  return 0;
 }
